@@ -1,0 +1,16 @@
+torch>=1.7
+torchvision>=0.8
+torch.nn
+torch.optim
+torch.utils.data
+torch.nn.functional
+torchvision.transforms
+torchvision.utils
+sklearn
+opencv-python
+numpy
+matplotlib
+scikit-image
+scipy
+dlib
+face-recognition
