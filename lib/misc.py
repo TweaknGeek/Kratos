@@ -1,6 +1,7 @@
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
+from tensorflow import np
 
 layers = nn.ParameterList()
 
@@ -64,6 +65,14 @@ class DepthPerception(nn.Module):
 
         # First CNN to analyze the shape of the woman's body and breast placement
         body_analysis = self.body_analysis_cnn(x)
+        
+        # Measure the size of the woman's breast so that we know the exact real size
+        breast_analysis = self.body_analysis_cnn(x)
+        breast_analysis = F.max_pool2d(breast_analysis, kernel_size=2, stride=2)
+        _, max_idx = breast_analysis.view(breast_analysis.size(0), -1).max(1)
+        breast_size = breast_analysis.size()[2:]
+        grid_size = (breast_size[0] // 2, breast_size[1] // 2)
+        breast_measurement = torch.div(max_idx, torch.tensor(np.prod(grid_size)).float(), rounding_mode='floor') + 1
 
         # Second CNN to look for nipple placement
         nipple_analysis = self.nipple_analysis_cnn(x)
@@ -73,7 +82,19 @@ class DepthPerception(nn.Module):
         nipple_analysis = nipple_analysis * attention_mask
 
         # Finally, compute the coordinates of the nipples
-        nipple_coordinates = torch.argmax(nipple_analysis, dim=1)
+        
+        # Look for raised spots through the clothing that covers the breasts
+        nipple_mask = (nipple_analysis > 0.5).float()
+        nipple_mask = F.max_pool2d(nipple_mask, kernel_size=2, stride=2)
+        nipple_mask = F.max_pool2d(nipple_mask, kernel_size=2, stride=2)
+        nipple_mask = F.max_pool2d(nipple_mask, kernel_size=2, stride=2)
+        nipple_mask = nipple_mask * attention_mask
+        nipple_x = nipple_mask * x
+        nipple_analysis = self.nipple_analysis_cnn(nipple_x)
+        
+        _, nipple_coordinates = torch.max(nipple_analysis, dim=1)
+        nipple_coordinates = (nipple_coordinates.float() / torch.tensor(np.prod(nipple_mask.size()[2:])).float()) * breast_measurement
+        nipple_coordinates = nipple_coordinates.int() + torch.tensor([[grid_size[0] // 2], [grid_size[1] // 2]])
 
         return nipple_coordinates
 
@@ -103,6 +124,7 @@ class DepthPerception(nn.Module):
             nn.Conv2d(64, 1, kernel_size=1, padding=0)
         )
         return layers(x)
+    
 
 class AttentionModel(nn.Module):
     def __init__(self):
