@@ -1,17 +1,22 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import datasets, transforms
-import eval
+from torchvision import transforms
+import torch.nn.functional as F
+from dataLoad import PoundTownDataset
 
-class CelebAModel(nn.Module):
+class PoundTownModel(nn.Module):
     def __init__(self):
-        super(CelebAModel, self).__init__()
+        super(PoundTownModel, self).__init__()
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.fc1 = nn.Linear(64 * 4 * 4, 128)
         self.fc2 = nn.Linear(128, 2)
+
+        
+    def tokenize_instructions(self, instructions):
+        return self.tokenizer.encode(instructions, add_special_tokens=True, return_tensors='pt')
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -28,13 +33,12 @@ transform = transforms.Compose([
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 
-trainset = datasets.CelebA(root='./data', download=True, split='train', transform=transform)
-trainloader = DataLoader(trainset, batch_size=32, shuffle=True)
+# Create the data loader
+trainset, testset = PoundTownDataset.get_datasets(transform=PoundTownDataset.transform)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=32, shuffle=True)
+testloader = torch.utils.data.DataLoader(testset, batch_size=32, shuffle=False)
 
-testset = datasets.CelebA(root='./data', download=True, split='test', transform=transform)
-testloader = DataLoader(testset, batch_size=32, shuffle=False)
-
-model = CelebAModel()
+model = PoundTownModel()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
