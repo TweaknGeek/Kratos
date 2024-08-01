@@ -5,6 +5,9 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import f1_score, precision_score, recall_score
 from torch import nn
 import os
+import model
+from model import CelebAModel
+from dataLoad import trainset, testset, batch_size
 
 
 def evaluate(model, test_loader):
